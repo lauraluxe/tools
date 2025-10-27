@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Laura Luxe Diamonds | Jewellery Estimate</title>
+<style>
+  :root {
+    --gold: #d4af37;
+    --gold-dark: #bfa12b;
+  }
+
+  body {
+    font-family: 'Poppins', sans-serif;
+    background: #f9f9f9;
+    padding: 20px;
+    margin: 0;
+  }
+
+  .container {
+    max-width: 650px;
+    background: #fff;
+    padding: 24px;
+    margin: 0 auto;
+    border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  }
+
+  h2 {
+    text-align: center;
+    color: #333;
+    margin-bottom: 5px;
+  }
+
+  h4 {
+    text-align: center;
+    color: var(--gold);
+    margin-top: 0;
+  }
+
+  label {
+    display: block;
+    margin-top: 10px;
+    font-weight: 500;
+  }
+
+  input, select {
+    width: 100%;
+    padding: 10px;
+    margin-top: 6px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 14px;
+  }
+
+  button {
+    margin-top: 16px;
+    width: 100%;
+    background: var(--gold);
+    border: none;
+    padding: 12px;
+    color: white;
+    font-size: 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  button:hover {
+    background: var(--gold-dark);
+  }
+
+  .secondary-btn {
+    background: #4caf50;
+  }
+
+  .result {
+    margin-top: 20px;
+    background: #f8f8f8;
+    padding: 16px;
+    border-radius: 8px;
+    font-size: 15px;
+  }
+
+  .diamond-group {
+    border: 1px solid #ddd;
+    padding: 12px;
+    margin-top: 10px;
+    border-radius: 8px;
+    background: #fafafa;
+  }
+
+  .remove-btn {
+    background: crimson;
+    color: #fff;
+    border: none;
+    padding: 6px 10px;
+    margin-top: 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    width: 100%;
+  }
+
+  @media (max-width: 600px) {
+    body { padding: 10px; }
+    .container { padding: 16px; }
+    h2 { font-size: 20px; }
+    button { font-size: 15px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h2>Laura Luxe Diamonds</h2>
+  <h4>Jewellery Estimate Generator</h4>
+
+  <label for="customerName">Customer Name:</label>
+  <input type="text" id="customerName" placeholder="">
+
+  <label for="customerPhone">Customer Phone:</label>
+  <input type="text" id="customerPhone" placeholder="Optional">
+
+  <label for="goldPrice">Gold Price (per gram):</label>
+  <input type="number" id="goldPrice" placeholder="Enter gold price per gram">
+
+  <label for="purity">Gold Purity:</label>
+  <select id="purity">
+    <option value="9">9K</option>
+    <option value="14" selected="selected">14K</option>
+    <option value="18">18K</option>
+  </select>
+
+  <label for="goldWeight">Gold Weight (grams):</label>
+  <input type="number" id="goldWeight" placeholder="Enter gold weight">
+
+  <h3 style="margin-top:20px;">Diamond Details</h3>
+  <div id="diamondContainer"></div>
+  <button type="button" onclick="addDiamond()">+ Add Diamond</button>
+
+  <label for="margin">Additional Margin (%):</label>
+  <input type="number" id="margin" placeholder="Optional">
+
+  <button onclick="calculateEstimate()">💎 Calculate Estimate</button>
+  <button id="printBtn" class="secondary-btn" onclick="downloadPDF()" style="display:none;">🧾 Download Quotation PDF</button>
+
+  <div class="result" id="result"></div>
+</div>
+
+<!-- jsPDF library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<script>
+let diamondCount = 0;
+
+function addDiamond() {
+  diamondCount++;
+  const container = document.getElementById("diamondContainer");
+
+  const div = document.createElement("div");
+  div.className = "diamond-group";
+  div.id = `diamond-${diamondCount}`;
+  div.innerHTML = `
+    <label>Diamond Type:</label>
+    <select class="diamondType">
+      <option value="-2">-2 Sieve</option>
+      <option value="star">Star Sieve</option>
+      <option value="Solitaire"> Solitaire </option>
+    </select>
+
+    <label>Diamond Weight (cents):</label>
+    <input type="number" class="diamondWeight" placeholder="Enter diamond weight in cents">
+
+    <button type="button" class="remove-btn" onclick="removeDiamond('${div.id}')">Remove Diamond</button>
+  `;
+  container.appendChild(div);
+}
+
+function removeDiamond(id) {
+  document.getElementById(id).remove();
+}
+
+function calculateEstimate() {
+  const customerName = document.getElementById('customerName').value || 'N/A';
+  const customerPhone = document.getElementById('customerPhone').value || 'N/A';
+  const goldPrice = parseFloat(document.getElementById('goldPrice').value);
+  const purity = parseInt(document.getElementById('purity').value);
+  const goldWeight = parseFloat(document.getElementById('goldWeight').value);
+  const margin = parseFloat(document.getElementById('margin').value) || 0;
+
+  if (isNaN(goldPrice) || isNaN(goldWeight)) {
+    document.getElementById('result').innerHTML = "⚠️ Please enter valid gold price and weight.";
+    return;
+  }
+
+  // Gold cost
+  const purityFactor = purity / 24;
+  const goldCost = goldPrice * goldWeight * purityFactor;
+
+  // Diamonds
+  const diamondGroups = document.querySelectorAll('.diamond-group');
+  let totalDiamondCost = 0;
+  let diamondDetails = '';
+
+  diamondGroups.forEach((group, i) => {
+    const type = group.querySelector('.diamondType').value;
+    const weight = parseFloat(group.querySelector('.diamondWeight').value);
+    if (!isNaN(weight)) {
+      const rate = type === "-2" ? 300 : 220;
+      const diamondCost = rate * weight;
+      totalDiamondCost += diamondCost;
+      diamondDetails += `Diamond ${i+1}: ${type === "-2" ? "-2 Sieve" : "Star Sieve"} — ${weight} cents × ₹${rate} = ₹${diamondCost.toFixed(2)}<br>`;
+    }
+  });
+
+  const makingCharge = 0.10 * (goldCost + totalDiamondCost);
+
+  // Total
+  let total = goldCost + totalDiamondCost + makingCharge;
+  total += total * (margin / 100);
+
+  document.getElementById('printBtn').style.display = 'block';
+
+  document.getElementById('result').innerHTML = `
+    <strong>Customer:</strong> ${customerName}<br>
+    <strong>Phone:</strong> ${customerPhone}<br><br>
+    <strong>Estimate Breakdown:</strong><br>
+    Gold Cost: ₹${goldCost.toFixed(2)}<br>
+    Gold Weight: ${goldWeight.toFixed(2)}<br>
+    Gold Purity: ${purity}K<br>
+    ${diamondDetails || "No Diamonds Added<br>"}
+    Total Diamond Cost: ₹${totalDiamondCost.toFixed(2)}<br>
+    Making Charge : ₹${makingCharge.toFixed(2)}<br>
+    <hr>
+    <strong>Total Estimate: ₹${total.toFixed(2)}</strong>
+  `;
+
+  window.lastEstimate = { customerName, customerPhone, goldCost, totalDiamondCost, makingCharge, margin, total, diamondDetails, purity, goldWeight};
+}
+
+function downloadPDF() {
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF();
+  const est = window.lastEstimate;
+  const date = new Date().toLocaleDateString();
+
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(16);
+  pdf.text("Laura Luxe Diamonds", 105, 20, { align: "center" });
+  pdf.setFontSize(12);
+  pdf.text("Jewellery Quotation", 105, 28, { align: "center" });
+
+  pdf.setFontSize(10);
+  pdf.text(`Date: ${date}`, 170, 36);
+  pdf.text(`Customer: ${est.customerName}`, 14, 36);
+  pdf.text(`Phone: ${est.customerPhone}`, 14, 42);
+
+  pdf.setFont("helvetica", "normal");
+  pdf.text("Estimate Details:", 14, 54);
+
+  const details = [
+    `Gold Cost: Rs.${est.goldCost.toFixed(2)}`,
+    `Gold Purity: ${est.purity}K`,
+    `Gold Weight: ${est.goldWeight.toFixed(2)}gms`,
+    `Diamond Details:`,
+    est.diamondDetails.replace(/<br>/g, "\n").replace(/₹/g, "Rs. "),
+    `Total Diamond Cost: Rs.${est.totalDiamondCost.toFixed(2)}`,
+    `Making Charge: Rs.${est.makingCharge.toFixed(2)}`,
+    `------------------------------------------`,
+    `Total Estimate: Rs.${est.total.toFixed(2)}`
+  ];
+
+  pdf.text(details.join("\n"), 14, 64);
+  pdf.text("Thank you for choosing Laura Luxe Diamonds!", 105, 150, { align: "center" });
+  const safeName = est.customerName !== "N/A" ? est.customerName.replace(/\s+/g, "_") : "Customer";
+  pdf.save(`LauraLuxe_Quotation_${safeName}.pdf`);
+}
+</script>
+
+</body>
+</html>
