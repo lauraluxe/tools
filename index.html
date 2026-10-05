@@ -138,8 +138,11 @@
   <div id="diamondContainer"></div>
   <button type="button" onclick="addDiamond()">+ Add Diamond</button>
 
+  <label for="makingCharges">Making Charges (%):</label>
+  <input type="number" id="makingCharges" value="10" min="0" step="0.01" placeholder="Enter making charges percentage">
+
   <label for="margin">Additional Margin (%):</label>
-  <input type="number" id="margin" placeholder="Optional">
+  <input type="number" id="margin" value="5" min="5" step="0.01" placeholder="Minimum 5%">
 
   <button onclick="calculateEstimate()">💎 Calculate Estimate</button>
   <button id="printBtn" class="secondary-btn" onclick="downloadPDF()" style="display:none;">🧾 Download Quotation PDF</button>
@@ -171,6 +174,9 @@ function addDiamond() {
     <label>Diamond Weight (cents):</label>
     <input type="number" class="diamondWeight" placeholder="Enter diamond weight in cents">
 
+    <label for="diamondRate-${diamondCount}">Diamond Rate (₹ per cent):</label>
+    <input type="number" id="diamondRate-${diamondCount}" class="diamondRate" min="0" step="0.01" placeholder="Enter rate per cent">
+
     <button type="button" class="remove-btn" onclick="removeDiamond('${div.id}')">Remove Diamond</button>
   `;
   container.appendChild(div);
@@ -186,7 +192,20 @@ function calculateEstimate() {
   const goldPrice = parseFloat(document.getElementById('goldPrice').value);
   const purity = parseInt(document.getElementById('purity').value);
   const goldWeight = parseFloat(document.getElementById('goldWeight').value);
-  const margin = parseFloat(document.getElementById('margin').value) || 0;
+  const margin = parseFloat(document.getElementById('margin').value);
+  document.getElementById('printBtn').style.display = 'none';
+  window.lastEstimate = null;
+  if (!Number.isFinite(margin) || margin < 5) {
+    document.getElementById('result').textContent = "⚠️ Additional margin must be at least 5%.";
+    return;
+  }
+  const makingChargesPercent = Number(document.getElementById('makingCharges').value);
+
+  if (!Number.isFinite(makingChargesPercent) || makingChargesPercent < 0) {
+    document.getElementById('result').textContent = "⚠️ Please enter a valid, non-negative making charges percentage.";
+    document.getElementById('printBtn').style.display = 'none';
+    return;
+  }
 
   if (isNaN(goldPrice) || isNaN(goldWeight)) {
     document.getElementById('result').innerHTML = "⚠️ Please enter valid gold price and weight.";
@@ -202,18 +221,30 @@ function calculateEstimate() {
   let totalDiamondCost = 0;
   let diamondDetails = '';
 
+  for (const group of diamondGroups) {
+    const rate = parseFloat(group.querySelector('.diamondRate').value);
+    if (!Number.isFinite(rate) || rate < 0) {
+      document.getElementById('result').textContent = "⚠️ Please enter a valid, non-negative rate per cent for each diamond.";
+      return;
+    }
+  }
+
   diamondGroups.forEach((group, i) => {
     const type = group.querySelector('.diamondType').value;
     const weight = parseFloat(group.querySelector('.diamondWeight').value);
     if (!isNaN(weight)) {
-      const rate = type === "-2" ? 300 : 220;
+      const rate = parseFloat(group.querySelector('.diamondRate').value);
       const diamondCost = rate * weight;
       totalDiamondCost += diamondCost;
-      diamondDetails += `Diamond ${i+1}: ${type === "-2" ? "-2 Sieve" : "Star Sieve"} — ${weight} cents × ₹${rate} = ₹${diamondCost.toFixed(2)}<br>`;
+      const typeLabel = group.querySelector('.diamondType').selectedOptions[0].textContent.trim();
+      diamondDetails += `Diamond ${i+1}: ${typeLabel} — ${weight} cents × ₹${rate} = ₹${diamondCost.toFixed(2)}<br>`;
     }
   });
 
-  const makingCharge = 0.10 * (goldCost + totalDiamondCost);
+  const percentageMakingCharge = (makingChargesPercent / 100) * (goldCost + totalDiamondCost);
+  const makingCharge = [9, 14, 18].includes(purity)
+    ? Math.max(percentageMakingCharge, 1200 * goldWeight, 1500)
+    : Math.max(percentageMakingCharge, 1500);
 
   // Total
   let total = goldCost + totalDiamondCost + makingCharge;
@@ -230,12 +261,12 @@ function calculateEstimate() {
     Gold Purity: ${purity}K<br>
     ${diamondDetails || "No Diamonds Added<br>"}
     Total Diamond Cost: ₹${totalDiamondCost.toFixed(2)}<br>
-    Making Charge : ₹${makingCharge.toFixed(2)}<br>
+    Making Charges: ₹${makingCharge.toFixed(2)}<br>
     <hr>
     <strong>Total Estimate: ₹${total.toFixed(2)}</strong>
   `;
 
-  window.lastEstimate = { customerName, customerPhone, goldCost, totalDiamondCost, makingCharge, margin, total, diamondDetails, purity, goldWeight};
+  window.lastEstimate = { customerName, customerPhone, goldCost, totalDiamondCost, makingCharge, makingChargesPercent, margin, total, diamondDetails, purity, goldWeight};
 }
 
 function downloadPDF() {
@@ -265,7 +296,7 @@ function downloadPDF() {
     `Diamond Details:`,
     est.diamondDetails.replace(/<br>/g, "\n").replace(/₹/g, "Rs. "),
     `Total Diamond Cost: Rs.${est.totalDiamondCost.toFixed(2)}`,
-    `Making Charge: Rs.${est.makingCharge.toFixed(2)}`,
+    `Making Charges: Rs.${est.makingCharge.toFixed(2)}`,
     `------------------------------------------`,
     `Total Estimate: Rs.${est.total.toFixed(2)}`
   ];
